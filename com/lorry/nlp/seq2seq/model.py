@@ -78,9 +78,18 @@ class AttnDecoderRNN(nn.Module):
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
+        att_emb = torch.cat((embedded[0], hidden[0]), 1)
 
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+        # 1 * max_length, 做一个 linear 变换
+        att = self.attn(att_emb)
+        # encoder的hidden 和前一个decoder 对应输出, 与每一个decoder 输出词的的概率 size:1 * max_length
+        attn_weights = F.softmax(att)
+
+        # 输出的一个词的概率与encoder 中每个词输出的概率;size: 1 * 1 * 256
         attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
+
+
+        # 拼接decoder输入与 (输入)每一个输出的概率
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
 
